@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 
 // Express App and Middleware Setup
@@ -27,7 +27,8 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const servicesCollection = client.db("services_sphereDB").collection("services");
- 
+    const reviewsCollection = client.db("services_sphereDB").collection("reviews");
+
     //  get all services
     app.get('/services', async (req, res) => {
       const result = await servicesCollection.find().toArray();
@@ -40,7 +41,30 @@ async function run() {
       res.send(result);
     });
 
-  
+    // get service by params id
+    app.get('/service/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await servicesCollection.findOne(query);
+      res.send(result);
+    });
+
+
+    // save a review in db
+    app.post('/add-review', async (req, res) => {
+      const reviewData = req.body;
+      const result = await reviewsCollection.insertOne(reviewData);
+      
+      // Increase review count in services collection
+      const filter = { _id: new ObjectId(reviewData.serviceId) }
+      const update = {
+        $inc: { reviewCount: 1 },
+      }
+      const updateReviewCount = await servicesCollection.updateOne(filter, update);
+      res.send(result);
+    });
+
+
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     // Send a ping to confirm a successful connection
