@@ -29,6 +29,13 @@ async function run() {
     const servicesCollection = client.db("services_sphereDB").collection("services");
     const reviewsCollection = client.db("services_sphereDB").collection("reviews");
 
+    // save a service in db
+    app.post('/add-service', async(req,res)=>{
+      const serviceData = req.body;
+      const result = await servicesCollection.insertOne(serviceData);
+      res.send(result);
+    });
+
     //  get all services
     app.get('/services', async (req, res) => {
       const result = await servicesCollection.find().toArray();
@@ -54,13 +61,14 @@ async function run() {
     app.post('/add-review', async (req, res) => {
       const reviewData = req.body;
       const result = await reviewsCollection.insertOne(reviewData);
-      
-      // Increase review count in services collection
-      const filter = { _id: new ObjectId(reviewData.serviceId) }
-      const update = {
-        $inc: { reviewCount: 1 },
-      }
-      const updateReviewCount = await servicesCollection.updateOne(filter, update);
+      res.send(result);
+    });
+
+    //  get all reviews by serviceId
+    app.get('/reviews/:serviceId', async (req, res) => {
+      const id = req.params.serviceId;
+      const query = { serviceId: id }
+      const result = await reviewsCollection.find(query).toArray();
       res.send(result);
     });
 
