@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const jwt = require('jsonwebtoken')
 
 
 // Express App and Middleware Setup
@@ -29,6 +30,23 @@ async function run() {
     const servicesCollection = client.db("services_sphereDB").collection("services");
     const reviewsCollection = client.db("services_sphereDB").collection("reviews");
 
+    // generate jwt
+    app.post('/jwt', async (req, res) => {
+      const email = req.body
+      // create token
+      const token = jwt.sign(email, process.env.SECRET_KEY, {
+        expiresIn: '365d',
+      })
+      console.log(token)
+      res
+        .cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        })
+        .send({ success: true })
+    });
+
     // save a service in db
     app.post('/add-service', async (req, res) => {
       const serviceData = req.body;
@@ -42,6 +60,18 @@ async function run() {
       res.send(result);
     });
 
+    // get all services by search and filter
+    app.get('/all-services', async (req, res) => {
+      const filter = req.query.filter || ''
+      const search = req.query.search || ''
+      const query = {
+        ...(search && { serviceTitle: { $regex: search, $options: 'i' } }),
+        ...(filter && { category: filter }),
+      };
+      const result = await servicesCollection.find(query).toArray()
+      res.send(result);
+    })
+
     // get limited services
     app.get('/featuredServices', async (req, res) => {
       const result = await servicesCollection.find().limit(6).toArray();
@@ -51,7 +81,7 @@ async function run() {
 
     // get posted services by searching
     app.get('/services/:email', async (req, res) => {
-      const  email  = req.params.email;
+      const email = req.params.email;
       const search = req.query.search || '';
       const query = {
         userEmail: email,
@@ -135,7 +165,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await reviewsCollection.deleteOne(query);
-      console.log( 'successfully deleted',result);
+      console.log('successfully deleted', result);
       res.send(result);
     });
 
