@@ -48,20 +48,33 @@ async function run() {
       res.send(result);
     });
 
-    // get all services posted by a user
+
+    // get posted services by searching
     app.get('/services/:email', async (req, res) => {
-      const email = req.params.email;
-      const query = { userEmail: email }
+      const  email  = req.params.email;
+      const search = req.query.search || '';
+      const query = {
+        userEmail: email,
+        serviceTitle: { $regex: search, $options: 'i' }
+      };
       const result = await servicesCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // delete a service by id
+    app.delete('/service/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await servicesCollection.deleteOne(query);
       res.send(result);
     });
 
     // update and then save a service
     app.put('/service/:id', async (req, res) => {
       const id = req.params.id;
-      const  formData= req.body;
+      const formData = req.body;
       const updatedDoc = {
-        $set:  formData,
+        $set: formData,
       }
       const filter = { _id: new ObjectId(id) }
       const options = { upsert: true }
@@ -92,6 +105,10 @@ async function run() {
       const result = await reviewsCollection.find(query).toArray();
       res.send(result);
     });
+
+
+
+
 
 
     // Connect the client to the server	(optional starting in v4.7)
