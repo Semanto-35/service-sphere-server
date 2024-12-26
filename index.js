@@ -30,7 +30,7 @@ async function run() {
     const reviewsCollection = client.db("services_sphereDB").collection("reviews");
 
     // save a service in db
-    app.post('/add-service', async(req,res)=>{
+    app.post('/add-service', async (req, res) => {
       const serviceData = req.body;
       const result = await servicesCollection.insertOne(serviceData);
       res.send(result);
@@ -45,6 +45,27 @@ async function run() {
     // get limited services
     app.get('/featuredServices', async (req, res) => {
       const result = await servicesCollection.find().limit(6).toArray();
+      res.send(result);
+    });
+
+    // get all services posted by a user
+    app.get('/services/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email }
+      const result = await servicesCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // update and then save a service
+    app.put('/service/:id', async (req, res) => {
+      const id = req.params.id;
+      const  formData= req.body;
+      const updatedDoc = {
+        $set:  formData,
+      }
+      const filter = { _id: new ObjectId(id) }
+      const options = { upsert: true }
+      const result = await servicesCollection.updateOne(filter, updatedDoc, options);
       res.send(result);
     });
 
