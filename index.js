@@ -2,15 +2,22 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const jwt = require('jsonwebtoken')
+const jwt = require('jsonwebtoken');
 
 
 // Express App and Middleware Setup
-const app = express();
 const port = process.env.PORT || 5000;
+const app = express();
+const cookieParser = require('cookie-parser');
+const corsOptions = {
+  origin: ['http://localhost:5173'],
+  credentials: true,
+  optionalSuccessStatus: 200,
+}
 
-app.use(cors());
-app.use(express.json());
+app.use(cors(corsOptions))
+app.use(express.json())
+app.use(cookieParser())
 
 
 // MongoDB Database Connection
@@ -25,6 +32,20 @@ const client = new MongoClient(uri, {
   }
 });
 
+// verifyToken
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token
+  if (!token) return res.status(401).send({ message: 'unauthorized access' })
+  jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: 'unauthorized access' })
+    }
+    req.user = decoded
+  })
+
+  next()
+}
+
 async function run() {
   try {
     const servicesCollection = client.db("services_sphereDB").collection("services");
@@ -33,11 +54,9 @@ async function run() {
     // generate jwt
     app.post('/jwt', async (req, res) => {
       const email = req.body
-      // create token
       const token = jwt.sign(email, process.env.SECRET_KEY, {
         expiresIn: '365d',
       })
-      console.log(token)
       res
         .cookie('token', token, {
           httpOnly: true,
@@ -46,6 +65,17 @@ async function run() {
         })
         .send({ success: true })
     });
+
+    // logout || clear cookie from browser
+    app.get('/logout', async (req, res) => {
+      res
+        .clearCookie('token', {
+          maxAge: 0,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        })
+        .send({ success: true })
+    })
 
     // save a service in db
     app.post('/add-service', async (req, res) => {
@@ -80,8 +110,11 @@ async function run() {
 
 
     // get posted services by searching
-    app.get('/services/:email', async (req, res) => {
+    app.get('/services/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
+      const decodedEmail = req.user?.email
+      if (decodedEmail !== email)
+        return res.status(401).send({ message: 'unauthorized access' })
       const search = req.query.search || '';
       const query = {
         userEmail: email,
@@ -92,7 +125,7 @@ async function run() {
     });
 
     // delete a service by id
-    app.delete('/service/:id', async (req, res) => {
+    app.delete('/service/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await servicesCollection.deleteOne(query);
@@ -137,8 +170,11 @@ async function run() {
     });
 
     // get all reviews posted by a user
-    app.get('/all-review/:email', async (req, res) => {
+    app.get('/all-review/:email', verifyToken, async (req, res) => {
       const emails = req.params.email;
+      const decodedEmail = req.user?.email
+      if (decodedEmail !== emails)
+        return res.status(401).send({ message: 'unauthorized access' })
       const query = {
         userEmail: emails
       }
@@ -156,7 +192,6 @@ async function run() {
       const filter = { _id: new ObjectId(id) }
       const options = { upsert: true }
       const result = await reviewsCollection.updateOne(filter, updatedDoc, options);
-      console.log('seccessfully updated', result);
       res.send(result);
     });
 
@@ -165,7 +200,6 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await reviewsCollection.deleteOne(query);
-      console.log('successfully deleted', result);
       res.send(result);
     });
 
