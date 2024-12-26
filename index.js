@@ -106,7 +106,38 @@ async function run() {
       res.send(result);
     });
 
+    // get all reviews posted by a user
+    app.get('/all-review/:email', async (req, res) => {
+      const emails = req.params.email;
+      const query = {
+        userEmail: emails
+      }
+      const result = await reviewsCollection.find(query).toArray();
+      res.send(result);
+    });
 
+    // update and then save a review
+    app.put('/review/:id', async (req, res) => {
+      const id = req.params.id;
+      const formData = req.body;
+      const updatedDoc = {
+        $set: formData,
+      }
+      const filter = { _id: new ObjectId(id) }
+      const options = { upsert: true }
+      const result = await reviewsCollection.updateOne(filter, updatedDoc, options);
+      console.log('seccessfully updated', result);
+      res.send(result);
+    });
+
+    // delete a review by id
+    app.delete('/review/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await reviewsCollection.deleteOne(query);
+      console.log( 'successfully deleted',result);
+      res.send(result);
+    });
 
 
 
