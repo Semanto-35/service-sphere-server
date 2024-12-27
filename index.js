@@ -10,7 +10,11 @@ const port = process.env.PORT || 5000;
 const app = express();
 const cookieParser = require('cookie-parser');
 const corsOptions = {
-  origin: ['http://localhost:5173'],
+  origin: ['http://localhost:5173',
+    'https://service-sphere-3137f.web.app',
+    'https://service-sphere-3137f.firebaseapp.com'
+
+  ],
   credentials: true,
   optionalSuccessStatus: 200,
 }
@@ -50,6 +54,14 @@ async function run() {
   try {
     const servicesCollection = client.db("services_sphereDB").collection("services");
     const reviewsCollection = client.db("services_sphereDB").collection("reviews");
+
+// countup
+    app.get('/stats', async(req,res)=>{
+      const serviceCount = await servicesCollection.countDocuments();
+      const reviewCount = await reviewsCollection.countDocuments();
+      res.send({services: serviceCount,
+        reviews: reviewCount,})
+    });
 
     // generate jwt
     app.post('/jwt', async (req, res) => {
@@ -133,7 +145,7 @@ async function run() {
     });
 
     // update and then save a service
-    app.put('/service/:id', async (req, res) => {
+    app.put('/service/:id',verifyToken, async (req, res) => {
       const id = req.params.id;
       const formData = req.body;
       const updatedDoc = {
@@ -183,7 +195,7 @@ async function run() {
     });
 
     // update and then save a review
-    app.put('/review/:id', async (req, res) => {
+    app.put('/review/:id',verifyToken, async (req, res) => {
       const id = req.params.id;
       const formData = req.body;
       const updatedDoc = {
@@ -196,7 +208,7 @@ async function run() {
     });
 
     // delete a review by id
-    app.delete('/review/:id', async (req, res) => {
+    app.delete('/review/:id',verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await reviewsCollection.deleteOne(query);
