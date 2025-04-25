@@ -52,22 +52,26 @@ const verifyToken = (req, res, next) => {
 
 async function run() {
   try {
+    const usersCollection = client.db("services_sphereDB").collection("users");
     const servicesCollection = client.db("services_sphereDB").collection("services");
     const reviewsCollection = client.db("services_sphereDB").collection("reviews");
 
-// countup
-    app.get('/stats', async(req,res)=>{
+    // countup
+    app.get('/stats', async (req, res) => {
       const serviceCount = await servicesCollection.countDocuments();
       const reviewCount = await reviewsCollection.countDocuments();
-      res.send({services: serviceCount,
-        reviews: reviewCount,})
+      const users = await usersCollection.countDocuments();
+      res.send({
+        services: serviceCount,
+        reviews: reviewCount, users
+      })
     });
 
     // generate jwt
     app.post('/jwt', async (req, res) => {
       const email = req.body
       const token = jwt.sign(email, process.env.SECRET_KEY, {
-        expiresIn: '365d',
+        expiresIn: '7d',
       })
       res
         .cookie('token', token, {
@@ -87,7 +91,14 @@ async function run() {
           sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
         })
         .send({ success: true })
-    })
+    });
+
+    // save a user in db
+    app.post('/user', async (req, res) => {
+      const userData = req.body;
+      const result = await usersCollection.insertOne(userData);
+      res.send(result);
+    });
 
     // save a service in db
     app.post('/add-service', async (req, res) => {
@@ -145,7 +156,7 @@ async function run() {
     });
 
     // update and then save a service
-    app.put('/service/:id',verifyToken, async (req, res) => {
+    app.put('/service/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const formData = req.body;
       const updatedDoc = {
@@ -195,7 +206,7 @@ async function run() {
     });
 
     // update and then save a review
-    app.put('/review/:id',verifyToken, async (req, res) => {
+    app.put('/review/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const formData = req.body;
       const updatedDoc = {
@@ -208,7 +219,7 @@ async function run() {
     });
 
     // delete a review by id
-    app.delete('/review/:id',verifyToken, async (req, res) => {
+    app.delete('/review/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await reviewsCollection.deleteOne(query);
